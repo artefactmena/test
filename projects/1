@@ -1,0 +1,85 @@
+// Databricks notebook source
+import com.microsoft.azure.sqldb.spark.config.Config
+import com.microsoft.azure.sqldb.spark.connect._
+
+// COMMAND ----------
+
+//Connection setting for sql-server (Datamart for CB reports)
+val config = Config(Map(
+  "url"            -> "data-lake.database.windows.net",
+  "databaseName"   -> "cb_reports",
+  "dbTable"        -> "dbo.test_db" , //test table created in sql 
+  "user"           -> "lake-meta-admin",
+  "password"       -> "H1V5M3t#store",
+  "connectTimeout" -> "5", //seconds
+  "queryTimeout"   -> "5"  //seconds
+))
+
+//val collection = spark.read.sqlDB(config)
+//collection.show()
+
+// COMMAND ----------
+
+import org.apache.spark._
+
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql._
+
+
+//creating sample data in a dataframe
+val collectionData = Seq(
+  Row("8"),
+  Row("64"),
+  Row("27")
+)
+
+val collectionSchema = List(
+  StructField("Id", StringType, true)
+)
+
+val collectionDF = spark.createDataFrame(
+  spark.sparkContext.parallelize(collectionData),
+  StructType(collectionSchema)
+)
+
+// COMMAND ----------
+
+collectionDF.show()
+
+// COMMAND ----------
+
+import org.apache.spark.sql.SaveMode
+
+collectionDF.write.mode(SaveMode.Append).sqlDB(config)
+
+// COMMAND ----------
+
+//mounting adls storage with databricks
+
+val configs = Map(
+  "fs.azure.account.auth.type" -> "OAuth",
+ // "fs.azure.account.oauth.provider.type" -> "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+  "fs.azure.account.oauth.provider.type" -> "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider",
+  "fs.azure.account.oauth2.client.id" -> "5ca92899-b29e-4646-bfe1-61313b243f32",
+  "fs.azure.account.oauth2.client.secret" -> "/xXlcBrNjFRJ6/L6sJI/Uj/i5D1Sz5P/gQxeusRUV24=",
+  "fs.azure.account.oauth2.client.endpoint" -> "https://login.microsoftonline.com/7e2e4ae2-33d7-4adb-87f7-22ff5fb34ab5/oauth2/token")
+
+// Optionally, you can add <your-directory-name> to the source URI of your mount point.
+dbutils.fs.mount(
+  source = "abfss://core-banking-dump@artefactdatalake.dfs.core.windows.net/",
+  mountPoint = "/mnt/ADLS2",
+  extraConfigs = configs)
+
+// COMMAND ----------
+
+// MAGIC %sql
+// MAGIC show tables;
+
+// COMMAND ----------
+
+// MAGIC %sql
+// MAGIC show create table gldump;
+
+// COMMAND ----------
+
